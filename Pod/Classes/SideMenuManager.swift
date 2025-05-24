@@ -48,6 +48,7 @@ public class SideMenuManager: NSObject {
     public class var defaultManager: SideMenuManager {
         return SideMenuManager.default
     }
+	public weak var myScene: UIWindowScene? //allows multiple scense on screen
 
     /// The left menu.
     open var leftMenuNavigationController: SideMenuNavigationController? {
@@ -214,8 +215,19 @@ private extension SideMenuManager {
         return SideMenuPanGestureRecognizer(addTo: view, target: self, action: #selector(handlePresentMenuPan(_:)))
     }
 
+	var myWindow: UIWindow? {
+		if let myScene {
+			if #available(iOS 15.0, *) {
+				return myScene.keyWindow
+			} else {
+				return myScene.windows.filter { $0.isKeyWindow }.first
+			}
+		}
+		return UIApplication.shared.keyWindow //overrided with a search of windows
+	}
+	
     var topMostViewController: UIViewController? {
-        return UIApplication.shared.keyWindow?.rootViewController?.topMostViewController
+		return myWindow?.rootViewController?.topMostViewController
     }
 }
 
