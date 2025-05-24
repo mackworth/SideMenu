@@ -69,7 +69,7 @@ internal protocol MenuModel {
     @objc optional func sideMenuDidDisappear(menu: SideMenuNavigationController, animated: Bool)
 }
 
-internal protocol SideMenuNavigationControllerTransitionDelegate: class {
+internal protocol SideMenuNavigationControllerTransitionDelegate: AnyObject {
     func sideMenuTransitionDidDismiss(menu: Menu)
 }
 
@@ -91,7 +91,7 @@ public struct SideMenuSettings: Model, InitializableStruct {
     public var menuWidth: CGFloat = {
         let appScreenRect = UIApplication.shared.keyWindow?.bounds ?? UIWindow().bounds
         let minimumSize = min(appScreenRect.width, appScreenRect.height)
-        return min(round(minimumSize * 0.75), 240)
+        return min(round(minimumSize * 0.75), 290)
     }()
     public var presentingViewControllerUserInteractionEnabled: Bool = false
     public var presentingViewControllerUseSnapshot: Bool = false
@@ -352,7 +352,7 @@ extension SideMenuNavigationController: Model {
         set { settings.animationOptions = newValue }
     }
 
-    open var blurEffectStyle: UIBlurEffect.Style? {
+	public var blurEffectStyle: UIBlurEffect.Style? {
         get { return settings.blurEffectStyle }
         set { settings.blurEffectStyle = newValue }
     }
@@ -438,7 +438,7 @@ extension SideMenuNavigationController: Model {
         set { settings.presentDuration = newValue }
     }
 
-    open var presentationStyle: SideMenuPresentationStyle {
+	public var presentationStyle: SideMenuPresentationStyle {
         get { return settings.presentationStyle }
         set { settings.presentationStyle = newValue }
     }
@@ -507,13 +507,14 @@ internal extension SideMenuNavigationController {
 
     // Note: although this method is syntactically reversed it allows the interactive property to scoped privately
     func present(from viewController: UIViewController?, interactively: Bool, completion: (() -> Void)? = nil) {
-        guard let viewController = viewController else { return }
+        guard let viewController = viewController, 
+              self.presentingViewController == nil else { return }
         transitionInteractive = interactively
         viewController.present(self, animated: true, completion: completion)
     }
 }
 
-private extension SideMenuNavigationController {
+extension SideMenuNavigationController : UIGestureRecognizerDelegate {
 
     weak var activeDelegate: SideMenuNavigationControllerDelegate? {
         guard !view.isHidden else { return nil }
@@ -622,9 +623,15 @@ private extension SideMenuNavigationController {
         guard enableSwipeToDismissGesture else { return nil }
         return UIPanGestureRecognizer(addTo: view, target: self, action: #selector(handleDismissMenuPan(_:)))?.with {
             $0.cancelsTouchesInView = false
+			$0.delegate = self;
         }
     }
-
+	
+	public func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+		if gestureRecognizer == swipeToDismissGesture { return true }
+		return false;
+	}
+	
     @discardableResult func addTapToDismissGesture(to view: UIView?) -> UITapGestureRecognizer? {
         guard enableTapToDismissGesture else { return nil }
         return UITapGestureRecognizer(addTo: view, target: self, action: #selector(handleDismissMenuTap(_:)))?.with {
@@ -639,7 +646,11 @@ private extension SideMenuNavigationController {
     }
 
     @objc func handleDismissMenuPan(_ gesture: UIPanGestureRecognizer) {
-        handleMenuPan(gesture, false)
+		if let presentView = presentingViewController?.view,
+		   let presenterPoint = view.superview?.convert(gesture.location(in:view.superview), to:presentView ) {
+			guard presentView.point(inside: presenterPoint, with: nil) else { return }
+			handleMenuPan(gesture, false)
+		}
     }
 
     func factor(_ presenting: Bool) -> CGFloat {

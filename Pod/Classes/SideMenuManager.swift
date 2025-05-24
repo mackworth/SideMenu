@@ -6,12 +6,13 @@
 //
 
 import UIKit
+import Foundation
 
 @objcMembers
-public class SideMenuManager: NSObject {
+public class SideMenuManager: NSObject, UIGestureRecognizerDelegate {
 
     final private class SideMenuPanGestureRecognizer: UIPanGestureRecognizer {}
-    final private class SideMenuScreenEdgeGestureRecognizer: UIScreenEdgePanGestureRecognizer {}
+    final public class SideMenuScreenEdgeGestureRecognizer: UIScreenEdgePanGestureRecognizer {}
 
     @objc public enum PresentDirection: Int { case
         left = 1,
@@ -117,6 +118,37 @@ public class SideMenuManager: NSObject {
         
         return addPresentPanGesture(to: view)
     }
+	
+	public func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+		if gestureRecognizer is SideMenuScreenEdgeGestureRecognizer {
+			return !(otherGestureRecognizer is UIScreenEdgePanGestureRecognizer)
+		} else if gestureRecognizer is SideMenuPanGestureRecognizer {
+			let otherPanRecognizer = otherGestureRecognizer is UIPanGestureRecognizer
+			let otherSwipeRecognizer = otherGestureRecognizer is UISwipeGestureRecognizer
+			return !(otherPanRecognizer || otherSwipeRecognizer)
+		} else {
+			return false
+		}
+	}
+	
+	public func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRequireFailureOf  otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+		if gestureRecognizer is SideMenuScreenEdgeGestureRecognizer {
+			return otherGestureRecognizer is UIScreenEdgePanGestureRecognizer
+		} else if gestureRecognizer is SideMenuPanGestureRecognizer { 
+			let otherPanRecognizer = otherGestureRecognizer is UIPanGestureRecognizer
+			if otherPanRecognizer {
+				if NSStringFromClass(type(of:otherGestureRecognizer)).hasPrefix("UIScrollViewPan") {
+					return false
+				}
+			}
+			let otherSwipeRecognizer = otherGestureRecognizer is UISwipeGestureRecognizer
+			let screenEdgeRecognizer = otherGestureRecognizer is UIScreenEdgePanGestureRecognizer
+			
+			return !screenEdgeRecognizer && otherGestureRecognizer.state != .failed && (otherPanRecognizer || otherSwipeRecognizer)
+		} else {
+			return false
+		}
+	}
 }
 
 internal extension SideMenuManager {
@@ -205,6 +237,7 @@ private extension SideMenuManager {
         }
         return SideMenuScreenEdgeGestureRecognizer(addTo: view, target: self, action: #selector(handlePresentMenuScreenEdge(_:))).with {
             $0.edges = edge
+			$0.delegate = self
         }
     }
 
@@ -212,7 +245,10 @@ private extension SideMenuManager {
         if let panGestureRecognizer = view.gestureRecognizers?.first(where: { $0 is SideMenuPanGestureRecognizer }) as? SideMenuPanGestureRecognizer {
             return panGestureRecognizer
         }
-        return SideMenuPanGestureRecognizer(addTo: view, target: self, action: #selector(handlePresentMenuPan(_:)))
+		return SideMenuPanGestureRecognizer(addTo: view, target: self, action: #selector(handlePresentMenuPan(_:))).with {
+			$0.cancelsTouchesInView = false
+			$0.delegate = self;
+		}
     }
 
 	var myWindow: UIWindow? {

@@ -20,7 +20,7 @@ internal protocol PresentationModel {
     var menuWidth: CGFloat { get }
 }
 
-internal protocol SideMenuPresentationControllerDelegate: class {
+internal protocol SideMenuPresentationControllerDelegate: AnyObject {
     func sideMenuPresentationControllerDidTap(_ presentationController: SideMenuPresentationController)
     func sideMenuPresentationController(_ presentationController: SideMenuPresentationController, didPanWith gesture: UIPanGestureRecognizer)
 }
@@ -159,16 +159,15 @@ internal final class SideMenuPresentationController {
         snapshotView?.removeFromSuperview()
         presentationTransition()
 
-        guard let presentedViewController = presentedViewController,
-            let presentingViewController = presentingViewController
+        guard let presentedViewController,
+            let presentingViewController
             else { return }
-
         config.presentationStyle.dismissalTransitionWillBegin(to: presentedViewController, from: presentingViewController)
     }
 
     func dismissalTransition() {
-        guard let presentedViewController = presentedViewController,
-            let presentingViewController = presentingViewController
+        guard let presentedViewController,
+              let presentingViewController
             else { return }
 
         transition(
